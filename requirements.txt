@@ -1,5 +1,5 @@
 streamlit
 pdfplumber
 matplotlib
-pandas
+docx
 wordcloud
