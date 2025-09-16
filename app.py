@@ -1,62 +1,75 @@
 import streamlit as st
 import pdfplumber
-from docx import Document  # ✅ Correct import
-from collections import Counter
-import matplotlib.pyplot as plt
+import docx
 from wordcloud import WordCloud
-import re
-import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+from collections import Counter
 
-# Function to extract text from PDF using pdfplumber
-def extract_text_from_pdf(file):
-    text = ""
-    with pdfplumber.open(file) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text() or ""
-    return text
-
-# Function to extract text from DOCX using python-docx
-def extract_text_from_docx(file):
-    doc = Document(file)
-    return "\n".join([para.text for para in doc.paragraphs])
-
-# Clean and tokenize text
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(r'[^a-z\s]', '', text)
-    words = text.split()
-    return words
-
-# Streamlit UI
-st.title("📄 PDF/DOCX Text Visualizer")
-uploaded_file = st.file_uploader("Upload a PDF or DOCX file", type=["pdf", "docx"])
-
-if uploaded_file:
-    file_type = uploaded_file.name.split('.')[-1].lower()
-
-    if file_type == "pdf":
-        raw_text = extract_text_from_pdf(uploaded_file)
-    elif file_type == "docx":
-        raw_text = extract_text_from_docx(uploaded_file)
+# --- Text Extraction ---
+def extract_text(file):
+    if file.name.endswith(".pdf"):
+        with pdfplumber.open(file) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text() or ""
+        return text
+    elif file.name.endswith(".docx"):
+        doc = docx.Document(file)
+        return "\n".join([para.text for para in doc.paragraphs])
     else:
-        st.error("Unsupported file type.")
+        return ""
 
-    words = clean_text(raw_text)
-    word_freq = Counter(words)
-    top_words = word_freq.most_common(20)
+# --- Word Frequency ---
+def get_word_freq(text, top_n=20):
+    words = [word.lower() for word in text.split() if word.isalpha()]
+    return Counter(words).most_common(top_n)
 
-    # Bar chart
-    st.subheader("🔢 Top 20 Word Frequencies")
-    words_list, freq_list = zip(*top_words)
+# --- WordCloud Plot ---
+def plot_wordcloud(text):
+    wc = WordCloud(width=800, height=400, background_color='white').generate(text)
     fig, ax = plt.subplots()
-    ax.bar(words_list, freq_list, color='teal')
-    plt.xticks(rotation=45)
+    ax.imshow(wc, interpolation='bilinear')
+    ax.axis("off")
     st.pyplot(fig)
 
-    # Word cloud
-    st.subheader("☁️ Word Cloud")
-    wc = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(word_freq)
-    fig_wc, ax_wc = plt.subplots()
-    ax_wc.imshow(wc, interpolation='bilinear')
-    ax_wc.axis('off')
-    st.pyplot(fig_wc)
+# --- Bar Chart ---
+def plot_bar_chart(freq_data):
+    words, counts = zip(*freq_data)
+    fig, ax = plt.subplots()
+    sns.barplot(x=list(counts), y=list(words), ax=ax)
+    ax.set_title("Top Words - Bar Chart")
+    st.pyplot(fig)
+
+# --- Pie Chart ---
+def plot_pie_chart(freq_data):
+    words, counts = zip(*freq_data)
+    fig, ax = plt.subplots()
+    ax.pie(counts, labels=words, autopct='%1.1f%%', startangle=140)
+    ax.set_title("Top Words - Pie Chart")
+    st.pyplot(fig)
+
+# --- Streamlit UI ---
+st.title("📄 Document Visualizer")
+st.markdown("Upload a PDF or DOCX file to generate visualizations.")
+
+uploaded_file = st.file_uploader("Upload File", type=["pdf", "docx"])
+
+if uploaded_file:
+    text = extract_text(uploaded_file)
+    if text:
+        st.subheader("📃 Extracted Text Preview")
+        st.text(text[:500] + "..." if len(text) > 500 else text)
+
+        freq_data = get_word_freq(text)
+
+        st.subheader("☁ Word Cloud")
+        plot_wordcloud(text)
+
+        st.subheader("📊 Bar Chart")
+        plot_bar_chart(freq_data)
+
+        st.subheader("🥧 Pie Chart")
+        plot_pie_chart(freq_data)
+    else:
+        st.error("Could not extract text from the uploaded file.")
