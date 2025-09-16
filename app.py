@@ -1,12 +1,13 @@
 import streamlit as st
 import pdfplumber
-from docx import Document
+from docx import Document  # ✅ Correct import
 from collections import Counter
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import re
+import os
 
-# Extract text from PDF using pdfplumber
+# Function to extract text from PDF using pdfplumber
 def extract_text_from_pdf(file):
     text = ""
     with pdfplumber.open(file) as pdf:
@@ -14,7 +15,7 @@ def extract_text_from_pdf(file):
             text += page.extract_text() or ""
     return text
 
-# Extract text from DOCX
+# Function to extract text from DOCX using python-docx
 def extract_text_from_docx(file):
     doc = Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
@@ -31,10 +32,14 @@ st.title("📄 PDF/DOCX Text Visualizer")
 uploaded_file = st.file_uploader("Upload a PDF or DOCX file", type=["pdf", "docx"])
 
 if uploaded_file:
-    if uploaded_file.name.endswith(".pdf"):
+    file_type = uploaded_file.name.split('.')[-1].lower()
+
+    if file_type == "pdf":
         raw_text = extract_text_from_pdf(uploaded_file)
-    else:
+    elif file_type == "docx":
         raw_text = extract_text_from_docx(uploaded_file)
+    else:
+        st.error("Unsupported file type.")
 
     words = clean_text(raw_text)
     word_freq = Counter(words)
@@ -44,7 +49,7 @@ if uploaded_file:
     st.subheader("🔢 Top 20 Word Frequencies")
     words_list, freq_list = zip(*top_words)
     fig, ax = plt.subplots()
-    ax.bar(words_list, freq_list, color='skyblue')
+    ax.bar(words_list, freq_list, color='teal')
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
